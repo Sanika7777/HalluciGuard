@@ -56,9 +56,8 @@ jobs:
             set -e
 
             # ── Clone or update repo ──────────────────────────────
-            if [ ! -d "/home/ubuntu/halluciguard" ]; then
-              git clone https://${{ secrets.HG_PAT }}@github.com/Sanika7777/HalluciGuard.git
-            fi
+            rm -rf /home/ubuntu/halluciguard
+            git clone https://${HG_PAT}@github.com/Sanika7777/HalluciGuard.git /home/ubuntu/halluciguard
 
             cd /home/ubuntu/halluciguard
             git fetch origin main
