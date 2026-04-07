@@ -54,7 +54,7 @@ jobs:
 
             # ── Clone or update repo ──────────────────────────────
             if [ ! -d "/home/ubuntu/halluciguard" ]; then
-              git clone https://github.com/${{ github.repository }}.git /home/ubuntu/halluciguard
+              git clone https://${{ secrets.GH_PAT }}@github.com/Sanika7777/HalluciGuard.git
             fi
 
             cd /home/ubuntu/halluciguard
