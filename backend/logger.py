@@ -25,30 +25,48 @@ from starlette.responses import Response
 
 # ── JSON Formatter ─────────────────────────────────────────────
 
+
 class JSONFormatter(logging.Formatter):
     """Formats every log record as a single JSON line."""
 
     # Fields to scrub from logs (regex patterns)
     SCRUB_PATTERNS = [
         (re.compile(r'"X-API-Key":\s*"[^"]{6}([^"]*)"'), r'"X-API-Key": "***"'),
-        (re.compile(r'"api_key":\s*"[^"]{6}([^"]*)"'),   r'"api_key": "***"'),
-        (re.compile(r'sk-[a-zA-Z0-9]{20,}'),              'sk-***'),
+        (re.compile(r'"api_key":\s*"[^"]{6}([^"]*)"'), r'"api_key": "***"'),
+        (re.compile(r"sk-[a-zA-Z0-9]{20,}"), "sk-***"),
     ]
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%f+00:00"),
-            "level":     record.levelname,
-            "logger":    record.name,
-            "message":   record.getMessage(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
         }
 
         # Add any extra fields attached to the record
         skip = {
-            "message", "msg", "args", "levelname", "levelno", "pathname",
-            "filename", "module", "exc_info", "exc_text", "stack_info",
-            "lineno", "funcName", "created", "msecs", "relativeCreated",
-            "thread", "threadName", "processName", "process", "name",
+            "message",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "name",
             "taskName",
         }
         for key, val in record.__dict__.items():
@@ -69,10 +87,11 @@ class JSONFormatter(logging.Formatter):
 
 # ── Logger Setup ───────────────────────────────────────────────
 
+
 def _setup_logger() -> logging.Logger:
     logger = logging.getLogger("hallucination_detector")
     if logger.handlers:
-        return logger   # Already configured
+        return logger  # Already configured
 
     logger.setLevel(logging.DEBUG)
     fmt = JSONFormatter()
@@ -100,8 +119,8 @@ log = _setup_logger()
 # ── Request Logging Middleware ─────────────────────────────────
 
 _SAFE_BODY_KEYS = {"prompt", "response", "llm_target", "risk_context"}
-_MAX_BODY_LEN   = 500       # chars per field before truncation
-_MAX_FIELDS     = 5         # max fields from body to log
+_MAX_BODY_LEN = 500  # chars per field before truncation
+_MAX_FIELDS = 5  # max fields from body to log
 
 
 def _sanitize_body(body_bytes: bytes) -> dict | str:
@@ -116,7 +135,9 @@ def _sanitize_body(body_bytes: bytes) -> dict | str:
         for k, v in list(data.items())[:_MAX_FIELDS]:
             if k in _SAFE_BODY_KEYS:
                 str_v = str(v)
-                safe[k] = str_v[:_MAX_BODY_LEN] + "…" if len(str_v) > _MAX_BODY_LEN else str_v
+                safe[k] = (
+                    str_v[:_MAX_BODY_LEN] + "…" if len(str_v) > _MAX_BODY_LEN else str_v
+                )
         return safe
     except (json.JSONDecodeError, UnicodeDecodeError):
         return body_bytes[:100].decode("utf-8", errors="replace")
@@ -136,11 +157,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "Incoming request",
             extra={
                 "request_id": request_id,
-                "method":     request.method,
-                "path":       request.url.path,
-                "query":      str(request.query_params),
-                "body":       _sanitize_body(body_bytes),
-                "client":     request.client.host if request.client else "unknown",
+                "method": request.method,
+                "path": request.url.path,
+                "query": str(request.query_params),
+                "body": _sanitize_body(body_bytes),
+                "client": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent", "")[:100],
             },
         )
@@ -165,10 +186,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         log.info(
             "Request completed",
             extra={
-                "request_id":  request_id,
+                "request_id": request_id,
                 "status_code": response.status_code,
                 "duration_ms": duration_ms,
-                "path":        request.url.path,
+                "path": request.url.path,
             },
         )
 
@@ -177,6 +198,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 
 # ── Helper Functions ───────────────────────────────────────────
+
 
 def log_prediction_event(
     endpoint: str,
@@ -188,9 +210,9 @@ def log_prediction_event(
     log.info(
         "Prediction complete",
         extra={
-            "endpoint":    endpoint,
-            "input":       input_data,
-            "result":      result,
+            "endpoint": endpoint,
+            "input": input_data,
+            "result": result,
             "duration_ms": duration_ms,
         },
     )
@@ -205,9 +227,9 @@ def log_error(
     log.error(
         f"Error in {context}: {exc}",
         extra={
-            "context":    context,
+            "context": context,
             "error_type": type(exc).__name__,
-            "traceback":  traceback.format_exc(),
+            "traceback": traceback.format_exc(),
             **(extra or {}),
         },
     )

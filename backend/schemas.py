@@ -16,34 +16,36 @@ from enum import Enum
 
 # ── Sanitization helpers ───────────────────────────────────────
 
-_NULL_BYTES    = re.compile(r'\x00')
-_CTRL_CHARS    = re.compile(r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]')
+_NULL_BYTES = re.compile(r"\x00")
+_CTRL_CHARS = re.compile(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 def _sanitize_text(v: str) -> str:
     """Strip null bytes, control chars, and surrounding whitespace."""
-    v = _NULL_BYTES.sub('', v)
-    v = _CTRL_CHARS.sub('', v)
+    v = _NULL_BYTES.sub("", v)
+    v = _CTRL_CHARS.sub("", v)
     return v.strip()
 
 
 # ── Enums ──────────────────────────────────────────────────────
 
+
 class LLMTarget(str, Enum):
-    gpt4   = "gpt4"
+    gpt4 = "gpt4"
     gemini = "gemini"
     claude = "claude"
-    llama  = "llama"
+    llama = "llama"
 
 
 class AbstentionLevel(str, Enum):
     self_contained = "self_contained"
-    minor_context  = "minor_context"
-    major_context  = "major_context"
-    unanswerable   = "unanswerable"
+    minor_context = "minor_context"
+    major_context = "major_context"
+    unanswerable = "unanswerable"
 
 
 # ── Request Schemas ────────────────────────────────────────────
+
 
 class PromptRiskRequest(BaseModel):
     prompt: str = Field(
@@ -135,70 +137,72 @@ class EngineerPromptRequest(BaseModel):
 
 # ── Response Schemas ───────────────────────────────────────────
 
+
 class WordHighlight(BaseModel):
-    word:        str
-    start:       int   = Field(..., ge=0)
-    end:         int   = Field(..., ge=0)
-    risk_score:  float = Field(..., ge=0.0, le=1.0)
-    reason:      str
+    word: str
+    start: int = Field(..., ge=0)
+    end: int = Field(..., ge=0)
+    risk_score: float = Field(..., ge=0.0, le=1.0)
+    reason: str
     suggestions: list[str]
 
 
 class ScoreBreakdown(BaseModel):
-    ambiguity:   float = Field(..., ge=0.0, le=1.0)
+    ambiguity: float = Field(..., ge=0.0, le=1.0)
     specificity: float = Field(..., ge=0.0, le=1.0)
-    context:     float = Field(..., ge=0.0, le=1.0)
+    context: float = Field(..., ge=0.0, le=1.0)
 
 
 class HallucinationType(BaseModel):
-    type_label:       str
+    type_label: str
     type_description: str
-    confidence:       float = Field(..., ge=0.0, le=1.0)
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
 
 class PromptDiff(BaseModel):
-    original_word:   str
+    original_word: str
     engineered_word: str
-    reason:          str
+    reason: str
 
 
 class PromptRiskResponse(BaseModel):
-    label:             str                      # "safe" | "risky"
-    confidence:        float                    # 0.0 – 1.0
-    risk_percent:      int                      # 0 – 100
-    score_breakdown:   ScoreBreakdown
-    highlights:        list[WordHighlight]
-    abstention_level:  AbstentionLevel
+    label: str  # "safe" | "risky"
+    confidence: float  # 0.0 – 1.0
+    risk_percent: int  # 0 – 100
+    score_breakdown: ScoreBreakdown
+    highlights: list[WordHighlight]
+    abstention_level: AbstentionLevel
     abstention_reason: str
-    missing_context:   list[str]
-    why_risky:         list[str]
-    what_to_add:       list[str]
-    llm_target:        str
+    missing_context: list[str]
+    why_risky: list[str]
+    what_to_add: list[str]
+    llm_target: str
     llm_specific_warning: str = ""
 
 
 class ResponseHallucinationResponse(BaseModel):
-    hallucinated:      bool
-    confidence:        float
-    risk_percent:      int
+    hallucinated: bool
+    confidence: float
+    risk_percent: int
     hallucination_type: Optional[HallucinationType]
-    explanation:       list[str]
-    highlights:        list[WordHighlight]
+    explanation: list[str]
+    highlights: list[WordHighlight]
 
 
 class EngineerPromptResponse(BaseModel):
-    original_prompt:   str
+    original_prompt: str
     engineered_prompt: str
-    diff:              list[PromptDiff]
-    improvements:      list[str]
-    llm_target:        str
+    diff: list[PromptDiff]
+    improvements: list[str]
+    llm_target: str
 
 
 # ── Generic Schemas ────────────────────────────────────────────
 
+
 class ErrorResponse(BaseModel):
-    error:      str
-    detail:     Optional[str] = None
+    error: str
+    detail: Optional[str] = None
     status_code: int
 
     class Config:
@@ -207,7 +211,7 @@ class ErrorResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status:        str
+    status: str
     models_loaded: bool
-    version:       str = "1.0.0"
-    claude_api:    bool = False     # True if Claude API key is set
+    version: str = "1.0.0"
+    claude_api: bool = False  # True if Claude API key is set

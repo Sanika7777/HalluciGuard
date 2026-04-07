@@ -26,11 +26,15 @@ _raw_key = os.getenv("API_KEY", "")
 _dev_key = "dev-hallucination-key-2026"
 
 if not _raw_key:
-    log.warning("⚠ API_KEY env variable not set. Falling back to dev key. DO NOT use in production.")
+    log.warning(
+        "⚠ API_KEY env variable not set. Falling back to dev key. DO NOT use in production."
+    )
     API_KEY = _dev_key
     IS_DEV = True
 elif _raw_key == _dev_key:
-    log.warning("⚠ Using default dev API key. Set a strong API_KEY env variable in production.")
+    log.warning(
+        "⚠ Using default dev API key. Set a strong API_KEY env variable in production."
+    )
     API_KEY = _dev_key
     IS_DEV = True
 else:
@@ -42,9 +46,9 @@ else:
 # Track failed attempts per IP in memory
 # In production with multiple workers, use Redis instead
 _failed_attempts: dict[str, list[float]] = defaultdict(list)
-MAX_FAILED_ATTEMPTS = 10        # max failures
-WINDOW_SECONDS      = 300       # within 5 minutes
-LOCKOUT_SECONDS     = 600       # 10 minute lockout
+MAX_FAILED_ATTEMPTS = 10  # max failures
+WINDOW_SECONDS = 300  # within 5 minutes
+LOCKOUT_SECONDS = 600  # 10 minute lockout
 
 
 def _get_client_ip(request: Request) -> str:
@@ -77,6 +81,7 @@ def _clear_failed_attempts(ip: str) -> None:
 
 # ── Main auth dependency ───────────────────────────────────────
 
+
 async def verify_api_key(
     request: Request,
     api_key: str = Security(API_KEY_HEADER),
@@ -96,8 +101,7 @@ async def verify_api_key(
     # Check if IP is currently rate limited
     if _is_rate_limited(ip):
         log.warning(
-            "Rate limited IP blocked",
-            extra={"ip": ip, "path": request.url.path}
+            "Rate limited IP blocked", extra={"ip": ip, "path": request.url.path}
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -115,10 +119,7 @@ async def verify_api_key(
         )
 
     # Timing-safe comparison — prevents timing side-channel attacks
-    key_valid = secrets.compare_digest(
-        api_key.encode("utf-8"),
-        API_KEY.encode("utf-8")
-    )
+    key_valid = secrets.compare_digest(api_key.encode("utf-8"), API_KEY.encode("utf-8"))
 
     if not key_valid:
         _record_failed_attempt(ip)
@@ -130,13 +131,13 @@ async def verify_api_key(
                 "key_prefix": api_key[:6] + "..." if len(api_key) >= 6 else "???",
                 "attempt_count": attempts,
                 "path": request.url.path,
-            }
+            },
         )
         # If approaching limit, warn more loudly
         if attempts >= MAX_FAILED_ATTEMPTS - 2:
             log.error(
                 "Repeated auth failures — possible brute force attack",
-                extra={"ip": ip, "attempts": attempts}
+                extra={"ip": ip, "attempts": attempts},
             )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

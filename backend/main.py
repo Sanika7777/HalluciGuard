@@ -17,7 +17,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -28,13 +28,25 @@ from slowapi.errors import RateLimitExceeded
 from auth import verify_api_key
 from logger import LoggingMiddleware, log, log_prediction_event, log_error
 from models import ModelStore, predict_prompt_risk, predict_response_hallucination
-from claude_api import analyze_prompt_context, engineer_prompt, CLAUDE_AVAILABLE as claude_ok
+from claude_api import (
+    analyze_prompt_context,
+    engineer_prompt,
+    CLAUDE_AVAILABLE as claude_ok,
+)
 from schemas import (
-    PromptRiskRequest, PromptRiskResponse,
-    ResponseHallucinationRequest, ResponseHallucinationResponse,
-    EngineerPromptRequest, EngineerPromptResponse,
-    ErrorResponse, HealthResponse,
-    WordHighlight, ScoreBreakdown, HallucinationType, AbstentionLevel, PromptDiff,
+    PromptRiskRequest,
+    PromptRiskResponse,
+    ResponseHallucinationRequest,
+    ResponseHallucinationResponse,
+    EngineerPromptRequest,
+    EngineerPromptResponse,
+    ErrorResponse,
+    HealthResponse,
+    WordHighlight,
+    ScoreBreakdown,
+    HallucinationType,
+    AbstentionLevel,
+    PromptDiff,
 )
 
 # ── Environment config ─────────────────────────────────────────
@@ -43,7 +55,7 @@ from schemas import (
 # In production set: ALLOWED_ORIGINS=https://halluciguard.ai,https://www.halluciguard.ai
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173",
 )
 ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -56,6 +68,7 @@ MAX_REQUEST_SIZE = int(os.getenv("MAX_REQUEST_SIZE", str(10 * 1024 * 1024)))
 limiter = Limiter(key_func=get_remote_address)
 
 # ── Lifespan ───────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -94,8 +107,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,            # No cookies needed
-    allow_methods=["GET", "POST"],      # Only what we use
+    allow_credentials=False,  # No cookies needed
+    allow_methods=["GET", "POST"],  # Only what we use
     allow_headers=["Content-Type", "X-API-Key"],
 )
 
@@ -105,22 +118,26 @@ app.add_middleware(LoggingMiddleware)
 
 # ── Security headers middleware ────────────────────────────────
 
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to every response."""
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"]    = "nosniff"
-    response.headers["X-Frame-Options"]           = "DENY"
-    response.headers["X-XSS-Protection"]          = "1; mode=block"
-    response.headers["Referrer-Policy"]            = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"]         = "geolocation=(), microphone=(), camera=()"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     # Only add HSTS in production (breaks local dev with HTTP)
     if os.getenv("PRODUCTION", "false").lower() == "true":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
     return response
 
 
 # ── Request size limit middleware ──────────────────────────────
+
 
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
@@ -129,26 +146,29 @@ async def limit_request_size(request: Request, call_next):
     if content_length and int(content_length) > MAX_REQUEST_SIZE:
         return JSONResponse(
             status_code=413,
-            content={"error": "Request body too large.", "status_code": 413}
+            content={"error": "Request body too large.", "status_code": 413},
         )
     return await call_next(request)
 
 
 # ── Exception handlers ─────────────────────────────────────────
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    log.warning("HTTP exception", extra={
-        "path": request.url.path,
-        "status_code": exc.status_code,
-        "detail": exc.detail,
-    })
+    log.warning(
+        "HTTP exception",
+        extra={
+            "path": request.url.path,
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+        },
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
-            error=exc.detail,
-            status_code=exc.status_code
-        ).model_dump()
+            error=exc.detail, status_code=exc.status_code
+        ).model_dump(),
     )
 
 
@@ -159,13 +179,13 @@ async def general_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
-            error="Internal server error. Please try again.",
-            status_code=500
-        ).model_dump()
+            error="Internal server error. Please try again.", status_code=500
+        ).model_dump(),
     )
 
 
 # ── Smart ML + Claude merge ────────────────────────────────────
+
 
 def _merge_claude_into_result(result: dict, claude: dict) -> dict:
     """
@@ -177,6 +197,7 @@ def _merge_claude_into_result(result: dict, claude: dict) -> dict:
     - Claude EXCLUSIVELY provides: llm_specific_warning, abstention_reason
     - If Claude returns empty/invalid lists, keep ML defaults — never blank out ML results
     """
+
     def _is_valid_list(val) -> bool:
         return isinstance(val, list) and len(val) > 0
 
@@ -200,6 +221,7 @@ def _merge_claude_into_result(result: dict, claude: dict) -> dict:
 
 
 # ── Routes ─────────────────────────────────────────────────────
+
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
@@ -235,7 +257,9 @@ async def predict_prompt(
     t0 = time.perf_counter()
 
     if not ModelStore.loaded:
-        raise HTTPException(status_code=503, detail="ML models not loaded. Try again in a moment.")
+        raise HTTPException(
+            status_code=503, detail="ML models not loaded. Try again in a moment."
+        )
 
     try:
         # 1. ML prediction (always runs, always primary)
@@ -243,7 +267,9 @@ async def predict_prompt(
 
         # 2. Claude enrichment (optional — degrades gracefully if unavailable)
         try:
-            claude_analysis = analyze_prompt_context(body.prompt, result, body.llm_target.value)
+            claude_analysis = analyze_prompt_context(
+                body.prompt, result, body.llm_target.value
+            )
             result = _merge_claude_into_result(result, claude_analysis)
         except Exception as e:
             log_error("claude_enrichment", e)
@@ -268,7 +294,10 @@ async def predict_prompt(
         duration_ms = round((time.perf_counter() - t0) * 1000, 2)
         log_prediction_event(
             endpoint="/predict-prompt",
-            input_data={"prompt": body.prompt[:100], "llm_target": body.llm_target.value},
+            input_data={
+                "prompt": body.prompt[:100],
+                "llm_target": body.llm_target.value,
+            },
             result={"label": result["label"], "risk_percent": result["risk_percent"]},
             duration_ms=duration_ms,
         )
@@ -278,7 +307,9 @@ async def predict_prompt(
         raise
     except Exception as e:
         log_error("/predict-prompt", e)
-        raise HTTPException(status_code=500, detail="Prediction failed. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Prediction failed. Please try again."
+        )
 
 
 @app.post(
@@ -312,7 +343,11 @@ async def predict_response(
             hallucinated=result["hallucinated"],
             confidence=result["confidence"],
             risk_percent=result["risk_percent"],
-            hallucination_type=HallucinationType(**result["hallucination_type"]) if result["hallucination_type"] else None,
+            hallucination_type=(
+                HallucinationType(**result["hallucination_type"])
+                if result["hallucination_type"]
+                else None
+            ),
             explanation=result["explanation"],
             highlights=[WordHighlight(**h) for h in result["highlights"]],
         )
@@ -321,7 +356,10 @@ async def predict_response(
         log_prediction_event(
             endpoint="/predict-response",
             input_data={"prompt": body.prompt[:80], "response": body.response[:80]},
-            result={"hallucinated": result["hallucinated"], "confidence": result["confidence"]},
+            result={
+                "hallucinated": result["hallucinated"],
+                "confidence": result["confidence"],
+            },
             duration_ms=duration_ms,
         )
         return response
@@ -330,7 +368,9 @@ async def predict_response(
         raise
     except Exception as e:
         log_error("/predict-response", e)
-        raise HTTPException(status_code=500, detail="Prediction failed. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Prediction failed. Please try again."
+        )
 
 
 @app.post(
@@ -362,11 +402,13 @@ async def engineer_prompt_endpoint(
         # Validate diff items have correct keys — map flexibly
         diff_items = []
         for d in result.get("diff", []):
-            diff_items.append(PromptDiff(
-                original_word=d.get("original_word") or d.get("original", ""),
-                engineered_word=d.get("engineered_word") or d.get("engineered", ""),
-                reason=d.get("reason", ""),
-            ))
+            diff_items.append(
+                PromptDiff(
+                    original_word=d.get("original_word") or d.get("original", ""),
+                    engineered_word=d.get("engineered_word") or d.get("engineered", ""),
+                    reason=d.get("reason", ""),
+                )
+            )
 
         response = EngineerPromptResponse(
             original_prompt=result["original_prompt"],
@@ -379,7 +421,10 @@ async def engineer_prompt_endpoint(
         duration_ms = round((time.perf_counter() - t0) * 1000, 2)
         log_prediction_event(
             endpoint="/engineer-prompt",
-            input_data={"prompt": body.prompt[:100], "llm_target": body.llm_target.value},
+            input_data={
+                "prompt": body.prompt[:100],
+                "llm_target": body.llm_target.value,
+            },
             result={"engineered": result["engineered_prompt"][:100]},
             duration_ms=duration_ms,
         )
@@ -389,13 +434,16 @@ async def engineer_prompt_endpoint(
         raise
     except Exception as e:
         log_error("/engineer-prompt", e)
-        raise HTTPException(status_code=500, detail="Prompt engineering failed. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Prompt engineering failed. Please try again."
+        )
 
 
 # ── Entry point ────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

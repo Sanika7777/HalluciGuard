@@ -1,4 +1,4 @@
-#OLLAMA API INTEGRATION
+# OLLAMA API INTEGRATION
 
 import json
 import time
@@ -6,18 +6,18 @@ import requests
 from logger import log, log_error
 
 OLLAMA_BASE = "http://localhost:11434"
-OLLAMA_MODEL = "phi3"   # change to "mistral", "phi3", "gemma2" etc.
-TIMEOUT = 60   #in seconds
+OLLAMA_MODEL = "phi3"  # change to "mistral", "phi3", "gemma2" etc.
+TIMEOUT = 60  # in seconds
 
 LLM_QUIRKS = {
-    "gpt4":   "GPT-4 hallucinate on recent events and math edge cases. Responds well to role-framing and step-by-step.",
+    "gpt4": "GPT-4 hallucinate on recent events and math edge cases. Responds well to role-framing and step-by-step.",
     "gemini": "Gemini over-explains and fabricates citations. Benefits from explicit output format constraints.",
     "claude": "Claude hallucinate on obscure facts. Responds well to chain-of-thought prompting.",
-    "llama":  "Llama hallucinates more on niche topics and long reasoning. Needs short, precise prompts.",
+    "llama": "Llama hallucinates more on niche topics and long reasoning. Needs short, precise prompts.",
 }
 
 
-#HEALTH CHECK
+# HEALTH CHECK
 def check_ollama_running() -> bool:
     try:
         r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=3)
@@ -44,16 +44,14 @@ def ollama_generate(prompt: str, system: str = "") -> str:
         "prompt": full_prompt,
         "stream": False,
         "options": {
-            "temperature": 0.3,   # low temp = more consistent JSON output
+            "temperature": 0.3,  # low temp = more consistent JSON output
             "top_p": 0.9,
             "num_predict": 1024,
-        }
+        },
     }
 
     response = requests.post(
-        f"{OLLAMA_BASE}/api/generate",
-        json=payload,
-        timeout=TIMEOUT
+        f"{OLLAMA_BASE}/api/generate", json=payload, timeout=TIMEOUT
     )
     response.raise_for_status()
     return response.json().get("response", "").strip()
@@ -70,8 +68,10 @@ def parse_json_response(raw: str) -> dict:
     return json.loads(clean)
 
 
-#CONTEXT ANALYSIS
-def analyze_prompt_context(prompt: str, risk_result: dict, llm_target: str = "gpt4") -> dict:
+# CONTEXT ANALYSIS
+def analyze_prompt_context(
+    prompt: str, risk_result: dict, llm_target: str = "gpt4"
+) -> dict:
     t0 = time.perf_counter()
 
     llm_quirk = LLM_QUIRKS.get(llm_target, LLM_QUIRKS["gpt4"])
@@ -112,21 +112,30 @@ Respond ONLY with this exact JSON structure, nothing else:
         result = parse_json_response(raw)
 
         duration_ms = round((time.perf_counter() - t0) * 1000, 2)
-        log.info("Ollama context analysis complete", extra={
-            "model": OLLAMA_MODEL,
-            "duration_ms": duration_ms
-        })
+        log.info(
+            "Ollama context analysis complete",
+            extra={"model": OLLAMA_MODEL, "duration_ms": duration_ms},
+        )
         return result
 
     except json.JSONDecodeError as e:
-        log_error("analyze_prompt_context JSON parse", e, {"raw": raw[:200] if 'raw' in dir() else ""})
+        log_error(
+            "analyze_prompt_context JSON parse",
+            e,
+            {"raw": raw[:200] if "raw" in dir() else ""},
+        )
         return _fallback_context(risk_result)
     except Exception as e:
         log_error("analyze_prompt_context", e)
         return _fallback_context(risk_result)
 
-#PROMPT ENGINEERING
-def engineer_prompt(prompt: str, llm_target: str = "gpt4", risk_context: dict = None) -> dict:
+
+# PROMPT ENGINEERING
+
+
+def engineer_prompt(
+    prompt: str, llm_target: str = "gpt4", risk_context: dict = None
+) -> dict:
 
     t0 = time.perf_counter()
 
@@ -173,12 +182,15 @@ Respond ONLY with this exact JSON, nothing else:
         result = parse_json_response(raw)
 
         duration_ms = round((time.perf_counter() - t0) * 1000, 2)
-        log.info("Ollama prompt engineering complete", extra={
-            "model": OLLAMA_MODEL,
-            "llm_target": llm_target,
-            "duration_ms": duration_ms,
-            "risk_reduction": result.get("estimated_risk_reduction")
-        })
+        log.info(
+            "Ollama prompt engineering complete",
+            extra={
+                "model": OLLAMA_MODEL,
+                "llm_target": llm_target,
+                "duration_ms": duration_ms,
+                "risk_reduction": result.get("estimated_risk_reduction"),
+            },
+        )
 
         return {
             "original_prompt": prompt,
@@ -186,41 +198,52 @@ Respond ONLY with this exact JSON, nothing else:
             "diff": result.get("diff", []),
             "improvements": result.get("improvements", []),
             "overall_improvement": result.get("overall_improvement", ""),
-            "estimated_risk_reduction": result.get("estimated_risk_reduction", "medium"),
+            "estimated_risk_reduction": result.get(
+                "estimated_risk_reduction", "medium"
+            ),
             "llm_target": llm_target,
         }
 
     except json.JSONDecodeError as e:
-        log_error("engineer_prompt JSON parse", e, {"raw": raw[:200] if 'raw' in dir() else ""})
+        log_error(
+            "engineer_prompt JSON parse",
+            e,
+            {"raw": raw[:200] if "raw" in dir() else ""},
+        )
         return _fallback_engineer(prompt, llm_target)
     except Exception as e:
         log_error("engineer_prompt", e)
         return _fallback_engineer(prompt, llm_target)
 
 
-#FALLBACKS
+# FALLBACKS
 def _fallback_context(risk_result: dict) -> dict:
     return {
-        "missing_context": risk_result.get("missing_context", [
-            "Domain or field of application",
-            "Time period or date reference",
-            "Background assumptions"
-        ]),
-        "why_risky": risk_result.get("why_risky", [
-            "Prompt lacks sufficient specificity",
-            "No context constraints provided"
-        ]),
+        "missing_context": risk_result.get(
+            "missing_context",
+            [
+                "Domain or field of application",
+                "Time period or date reference",
+                "Background assumptions",
+            ],
+        ),
+        "why_risky": risk_result.get(
+            "why_risky",
+            ["Prompt lacks sufficient specificity", "No context constraints provided"],
+        ),
         "abstention_needed": {
             "level": "medium",
             "reason": "Prompt requires additional context for accurate response",
-            "what_context_required": ["Background information", "Specific domain or use case"]
+            "what_context_required": [
+                "Background information",
+                "Specific domain or use case",
+            ],
         },
-        "what_to_add": risk_result.get("what_to_add", [
-            "Add domain context",
-            "Specify time period",
-            "Include your constraints"
-        ]),
-        "llm_specific_warning": f"Ollama ({OLLAMA_MODEL}) unavailable — using ML model analysis only. Run: ollama serve"
+        "what_to_add": risk_result.get(
+            "what_to_add",
+            ["Add domain context", "Specify time period", "Include your constraints"],
+        ),
+        "llm_specific_warning": f"Ollama ({OLLAMA_MODEL}) unavailable — using ML model analysis only. Run: ollama serve",
     }
 
 
@@ -233,14 +256,16 @@ def _fallback_engineer(prompt: str, llm_target: str) -> dict:
     return {
         "original_prompt": prompt,
         "engineered_prompt": engineered,
-        "diff": [{
-            "original": prompt[:60] + "...",
-            "engineered": "Added uncertainty and citation instructions",
-            "reason": "Reduces fabrication by asking model to flag uncertainty"
-        }],
+        "diff": [
+            {
+                "original": prompt[:60] + "...",
+                "engineered": "Added uncertainty and citation instructions",
+                "reason": "Reduces fabrication by asking model to flag uncertainty",
+            }
+        ],
         "improvements": [
             "Added explicit uncertainty acknowledgment instruction",
-            "Requested citations to ground factual claims"
+            "Requested citations to ground factual claims",
         ],
         "overall_improvement": "Added basic hallucination guardrails",
         "estimated_risk_reduction": "low",
