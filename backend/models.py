@@ -1,11 +1,11 @@
-#ML Inference Engine and Explanation Logic
+# ML Inference Engine and Explanation Logic
 
 import pickle
 import time
 import re
 import numpy as np
 from pathlib import Path
-from typing import Optional
+
 from logger import log, log_error
 
 PKL_DIR = Path(__file__).parent / "pkl"
@@ -34,7 +34,7 @@ ABSTENTION_PATTERNS = [
 ]
 
 
-#MODEL STORE
+# MODEL STORE
 class ModelStore:
     prompt_model: dict = None
     response_model: dict = None
@@ -58,7 +58,7 @@ class ModelStore:
             raise RuntimeError(f"Failed to load models: {e}")
 
 
-#WORD HIGHLIGHTING
+# WORD HIGHLIGHTING
 def get_word_highlights(text: str, risky_features: dict, top_n: int = 10) -> list[dict]:
     """
     Tokenize text, score each token against TF-IDF risky features,
@@ -67,9 +67,6 @@ def get_word_highlights(text: str, risky_features: dict, top_n: int = 10) -> lis
     """
     highlights = []
     seen_words = set()
-
-    words = re.finditer(r'\b\w+\b', text.lower())
-    original_words = re.finditer(r'\b\w+\b', text)
 
     word_scores = []
     for orig_match, lower_match in zip(
@@ -98,7 +95,7 @@ def get_word_highlights(text: str, risky_features: dict, top_n: int = 10) -> lis
         seen_words.add(word)
 
         # Find matching pattern for reason + suggestions
-        reason = f"Statistically associated with hallucination risk"
+        reason = "Statistically associated with hallucination risk"
         suggestions = ["Add more context around this term", "Be more specific"]
 
         for pattern, pat_reason, pat_suggestions in RISKY_PATTERNS:
@@ -163,7 +160,7 @@ def get_response_highlights(response_text: str, prompt_text: str, vectorizer, cl
     return highlights[:8]
 
 
-#SCORE BREAKDOWN
+# SCORE BREAKDOWN
 def compute_score_breakdown(prompt: str, base_confidence: float) -> dict:
     words = prompt.lower().split()
     word_count = len(words)
@@ -194,9 +191,9 @@ def compute_score_breakdown(prompt: str, base_confidence: float) -> dict:
     }
 
 
-#ABSTENTION DETECTION
+# ABSTENTION DETECTION
 def detect_abstention(prompt: str) -> tuple[str, str, list[str]]:
-    
+
     level = "self_contained"
     reason = "Prompt appears self-contained"
     missing = []
@@ -221,7 +218,9 @@ def detect_abstention(prompt: str) -> tuple[str, str, list[str]]:
 
     return level, reason, missing
 
-#INFERENCE ENGINE
+# INFERENCE ENGINE
+
+
 def predict_prompt_risk(prompt: str, llm_target: str = "gpt4") -> dict:
     """Full prompt risk analysis pipeline."""
     t0 = time.perf_counter()
