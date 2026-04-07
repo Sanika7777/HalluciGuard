@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+env/
+.venv/
+
+
+# Env
+.env
+
+# Logs
+*.log
+app.log
+
+# Docker
+.dockerignore
+
+# Dataset cache
+~/.cache/huggingface/
+
+# Node
+node_modules/
+.env.local
+*.tsbuildinfo
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db
+
+.next/
+frontend/.next/

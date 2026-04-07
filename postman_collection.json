@@ -1,0 +1,445 @@
+{
+  "info": {
+    "name": "Hallucination Detector API",
+    "description": "Complete test suite — auth, predictions, validation, error scenarios",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "api_key",  "value": "dev-hallucination-key-2026" }
+  ],
+  "item": [
+
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "GET /health — should return 200",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Models loaded', () => {",
+              "  const j = pm.response.json();",
+              "  pm.expect(j.status).to.eql('ok');",
+              "  pm.expect(j.models_loaded).to.be.true;",
+              "});"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "2. Authentication Tests",
+      "item": [
+        {
+          "name": "AUTH — Missing API key → 401",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test prompt\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 when no API key', () => pm.response.to.have.status(401));"
+            ]}
+          }]
+        },
+        {
+          "name": "AUTH — Wrong API key → 403",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "wrong-key-123" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test prompt\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 403 when wrong API key', () => pm.response.to.have.status(403));"
+            ]}
+          }]
+        },
+        {
+          "name": "AUTH — Valid API key → 200",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"Who invented electricity?\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200 with valid key', () => pm.response.to.have.status(200));",
+              "pm.test('Has label field', () => pm.expect(pm.response.json()).to.have.property('label'));",
+              "pm.test('Has confidence field', () => pm.expect(pm.response.json()).to.have.property('confidence'));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "3. Predict Prompt — Valid Inputs",
+      "item": [
+        {
+          "name": "PROMPT — Risky prompt",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"Who is the best president ever and why? What is the latest news about them?\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('Has all required fields', () => {",
+              "  pm.expect(j).to.have.property('label');",
+              "  pm.expect(j).to.have.property('confidence');",
+              "  pm.expect(j).to.have.property('risk_percent');",
+              "  pm.expect(j).to.have.property('highlights');",
+              "  pm.expect(j).to.have.property('score_breakdown');",
+              "  pm.expect(j).to.have.property('abstention_level');",
+              "  pm.expect(j).to.have.property('why_risky');",
+              "  pm.expect(j).to.have.property('missing_context');",
+              "});",
+              "pm.test('Confidence between 0 and 1', () => {",
+              "  pm.expect(j.confidence).to.be.within(0, 1);",
+              "});",
+              "pm.test('Label is safe or risky', () => {",
+              "  pm.expect(['safe','risky']).to.include(j.label);",
+              "});"
+            ]}
+          }]
+        },
+        {
+          "name": "PROMPT — Safe factual prompt",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"What is the capital of France?\", \"llm_target\": \"claude\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has score breakdown', () => {",
+              "  const bd = pm.response.json().score_breakdown;",
+              "  pm.expect(bd).to.have.property('ambiguity');",
+              "  pm.expect(bd).to.have.property('specificity');",
+              "  pm.expect(bd).to.have.property('context');",
+              "});"
+            ]}
+          }]
+        },
+        {
+          "name": "PROMPT — All LLM targets",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"What are the best stocks to buy right now?\", \"llm_target\": \"gemini\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('LLM target returned', () => pm.expect(pm.response.json().llm_target).to.eql('gemini'));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "4. Predict Prompt — Input Validation",
+      "item": [
+        {
+          "name": "VALIDATION — Empty prompt → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for empty prompt', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        },
+        {
+          "name": "VALIDATION — Missing prompt field → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for missing field', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        },
+        {
+          "name": "VALIDATION — Invalid LLM target → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test\", \"llm_target\": \"invalid_model\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for invalid LLM target', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        },
+        {
+          "name": "VALIDATION — Whitespace only prompt → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"     \", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for whitespace prompt', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "5. Predict Response — Valid Inputs",
+      "item": [
+        {
+          "name": "RESPONSE — Hallucinated response",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-response",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"Who invented the telephone?\", \"response\": \"Albert Einstein invented the telephone in 1875 along with his colleague Thomas Edison during their time at Harvard University.\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('Has hallucinated field', () => pm.expect(j).to.have.property('hallucinated'));",
+              "pm.test('Has confidence', () => pm.expect(j.confidence).to.be.within(0,1));",
+              "pm.test('Has explanation', () => pm.expect(j.explanation).to.be.an('array'));",
+              "pm.test('Has highlights', () => pm.expect(j.highlights).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "RESPONSE — Clean response",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-response",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"What is the capital of France?\", \"response\": \"The capital of France is Paris.\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has risk percent', () => pm.expect(pm.response.json().risk_percent).to.be.within(0,100));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "6. Predict Response — Validation",
+      "item": [
+        {
+          "name": "VALIDATION — Missing response field → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-response",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test prompt\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for missing response', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        },
+        {
+          "name": "VALIDATION — Empty response → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-response",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test\", \"response\": \"\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for empty response', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "7. Engineer Prompt",
+      "item": [
+        {
+          "name": "ENGINEER — Valid request",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/engineer-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"What is the best way to invest money?\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('Has original prompt', () => pm.expect(j).to.have.property('original_prompt'));",
+              "pm.test('Has engineered prompt', () => pm.expect(j).to.have.property('engineered_prompt'));",
+              "pm.test('Has improvements', () => pm.expect(j.improvements).to.be.an('array'));",
+              "pm.test('Engineered differs from original', () => pm.expect(j.engineered_prompt).to.not.eql(j.original_prompt));"
+            ]}
+          }]
+        },
+        {
+          "name": "ENGINEER — No auth → 401",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/engineer-prompt",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"prompt\": \"test\", \"llm_target\": \"gpt4\"}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 no auth', () => pm.response.to.have.status(401));"
+            ]}
+          }]
+        }
+      ]
+    },
+
+    {
+      "name": "8. Error Scenarios",
+      "item": [
+        {
+          "name": "ERROR — Wrong HTTP method → 405",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [{ "key": "X-API-Key", "value": "{{api_key}}" }]
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 405 for wrong method', () => pm.response.to.have.status(405));"
+            ]}
+          }]
+        },
+        {
+          "name": "ERROR — Non-existent endpoint → 404",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/non-existent-route",
+            "header": [{ "key": "X-API-Key", "value": "{{api_key}}" }]
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 404 for unknown route', () => pm.response.to.have.status(404));"
+            ]}
+          }]
+        },
+        {
+          "name": "ERROR — Malformed JSON → 422",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/predict-prompt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{this is not valid json}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422 for malformed JSON', () => pm.response.to.have.status(422));"
+            ]}
+          }]
+        }
+      ]
+    }
+
+  ]
+}

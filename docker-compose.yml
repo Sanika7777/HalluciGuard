@@ -1,0 +1,63 @@
+services:
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hallucination-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:-dev-hallucination-key-2026}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5}
+      - ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+      - PRODUCTION=${PRODUCTION:-false}
+      - OLLAMA_BASE=http://ollama:11434
+    restart: unless-stopped
+    networks:
+      - hallnet
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hallucination-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - FASTAPI_URL=http://backend:8000
+      - FASTAPI_KEY=${API_KEY:-dev-hallucination-key-2026}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - hallnet
+
+  # Ollama (optional local SLM — backend falls back gracefully if unavailable)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hallucination-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - hallnet
+
+volumes:
+  ollama_data:
+
+networks:
+  hallnet:
+    driver: bridge
