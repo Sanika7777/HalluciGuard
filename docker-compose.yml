@@ -1,6 +1,8 @@
+version: "3.9"
+
 services:
 
-  # FastAPI Backend
+  # ───────────── BACKEND ─────────────
   backend:
     build:
       context: .
@@ -25,7 +27,7 @@ services:
       start_period: 15s
       retries: 3
 
-  # Next.js Frontend
+  # ───────────── FRONTEND ─────────────
   frontend:
     build:
       context: ./frontend
@@ -43,18 +45,30 @@ services:
     networks:
       - hallnet
 
+  # ───────────── PROMETHEUS ─────────────
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - hallnet
+
+  # ───────────── GRAFANA ─────────────
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    networks:
+      - hallnet
+
+
+# ───────────── NETWORK ─────────────
 networks:
   hallnet:
     driver: bridge
-
-prometheus:
-  image: prom/prometheus
-  volumes:
-    - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  ports:
-    - "9090:9090"
-
-grafana:
-  image: grafana/grafana
-  ports:
-    - "3001:3000"
