@@ -12,7 +12,7 @@ services:
       - API_KEY=${API_KEY:-dev-hallucination-key-2026}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5}
-      - ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+      - ALLOWED_ORIGINS=https://halluguard.vercel.app
       - PRODUCTION=${PRODUCTION:-false}
       - OLLAMA_BASE=http://ollama:11434
     restart: unless-stopped
@@ -41,23 +41,4 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - hallnet
-
-  # Ollama (optional local SLM — backend falls back gracefully if unavailable)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: hallucination-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    networks:
-      - hallnet
-
-volumes:
-  ollama_data:
-
-networks:
-  hallnet:
-    driver: bridge
+s      - hallnet
