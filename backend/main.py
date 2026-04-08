@@ -3,7 +3,6 @@ main.py — FastAPI Application (Production Ready)
 """
 
 import os
-import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, HTTPException, Request
@@ -15,27 +14,20 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from auth import verify_api_key
-from logger import LoggingMiddleware, log, log_prediction_event, log_error
-from models import ModelStore, predict_prompt_risk, predict_response_hallucination
+from logger import LoggingMiddleware, log, log_error
+from models import ModelStore, predict_prompt_risk
 from claude_api import (
     analyze_prompt_context,
-    engineer_prompt,
     CLAUDE_AVAILABLE as claude_ok,
 )
 from schemas import (
     PromptRiskRequest,
     PromptRiskResponse,
-    ResponseHallucinationRequest,
-    ResponseHallucinationResponse,
-    EngineerPromptRequest,
-    EngineerPromptResponse,
     ErrorResponse,
     HealthResponse,
     WordHighlight,
     ScoreBreakdown,
-    HallucinationType,
     AbstentionLevel,
-    PromptDiff,
 )
 
 from prometheus_fastapi_instrumentator import Instrumentator
