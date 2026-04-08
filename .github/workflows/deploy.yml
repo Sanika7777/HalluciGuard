@@ -56,10 +56,10 @@ jobs:
             set -e
 
             # ── Clone or update repo ──────────────────────────────
-            rm -rf /home/ubuntu/halluciguard
-            git clone https://${HG_PAT}@github.com/Sanika7777/HalluciGuard.git /home/ubuntu/halluciguard
+            rm -rf /home/ubuntu/HalluciGuard
+            git clone https://${HG_PAT}@github.com/Sanika7777/HalluciGuard.git /home/ubuntu/HalluciGuard
 
-            cd /home/ubuntu/halluciguard
+            cd /home/ubuntu/HalluciGuard
             git fetch origin main
             git reset --hard origin/main
 
