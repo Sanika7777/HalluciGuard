@@ -74,7 +74,9 @@ jobs:
 
             # ── Rebuild and restart containers ────────────────────
             docker compose down --remove-orphans
-            docker compose build --no-cache
+            docker system prune -af
+            docker system prune -f
+            docker compose build
             docker compose up -d
 
             # ── Health check ──────────────────────────────────────
