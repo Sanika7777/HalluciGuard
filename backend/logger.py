@@ -151,7 +151,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         t0 = time.perf_counter()
 
         # Read body safely (Starlette consumes the stream)
-        body_bytes = await request.body()
+        try:
+            body_bytes = await request.body()
+        except Exception:
+            body_bytes = b""
 
         log.info(
             "Incoming request",
