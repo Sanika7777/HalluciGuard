@@ -9,7 +9,6 @@ services:
     ports:
       - "8000:8000"
 
-    # ✅ THIS FIXES CLAUDE_API ISSUE
     env_file:
       - .env
 

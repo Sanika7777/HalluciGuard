@@ -73,11 +73,9 @@ jobs:
             EOF
 
             # ── Rebuild and restart containers ────────────────────
-            docker compose down --remove-orphans
-            docker system prune -af
-            docker system prune -f
-            docker compose build
-            docker compose up -d
+            docker compose down
+            docker compose pull || true
+            docker compose up -d --no-build
 
             # ── Health check ──────────────────────────────────────
             echo "Waiting for backend to be healthy..."
