@@ -178,6 +178,7 @@ async def predict_prompt(
             why_risky=result["why_risky"],
             what_to_add=result["what_to_add"],
             llm_target=result["llm_target"],
+            abstention_reason=None,
         )
 
     except Exception as e:
