@@ -17,43 +17,49 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from auth import verify_api_key
-from logger import LoggingMiddleware, log, log_prediction_event, log_error
+from claude_api import CLAUDE_AVAILABLE as claude_ok
+from claude_api import analyze_prompt_context, engineer_prompt
+from logger import LoggingMiddleware, log, log_error, log_prediction_event
 from models import ModelStore, predict_prompt_risk, predict_response_hallucination
-from claude_api import analyze_prompt_context, engineer_prompt, CLAUDE_AVAILABLE as claude_ok
 from schemas import (
-    PromptRiskRequest, PromptRiskResponse,
-    ResponseHallucinationRequest, ResponseHallucinationResponse,
-    EngineerPromptRequest, EngineerPromptResponse,
-    ErrorResponse, HealthResponse,
-    WordHighlight, ScoreBreakdown, HallucinationType, AbstentionLevel, PromptDiff,
+    AbstentionLevel,
+    EngineerPromptRequest,
+    EngineerPromptResponse,
+    ErrorResponse,
+    HallucinationType,
+    HealthResponse,
+    PromptDiff,
+    PromptRiskRequest,
+    PromptRiskResponse,
+    ResponseHallucinationRequest,
+    ResponseHallucinationResponse,
+    ScoreBreakdown,
+    WordHighlight,
 )
 
 # ── Environment config ─────────────────────────────────────────
 
-# Comma-separated list of allowed origins. Default allows localhost dev.
-# In production set: ALLOWED_ORIGINS=https://halluciguard.ai,https://www.halluciguard.ai
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
 )
 ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
-# Max request body size in bytes (10MB default)
 MAX_REQUEST_SIZE = int(os.getenv("MAX_REQUEST_SIZE", str(10 * 1024 * 1024)))
 
 # ── Rate limiter ───────────────────────────────────────────────
-# Per-IP rate limiting — protects against abuse even with valid API keys
-# auth.py handles brute force on bad keys; this handles valid-key spam
+
 limiter = Limiter(key_func=get_remote_address)
+
 
 # ── Lifespan ───────────────────────────────────────────────────
 
@@ -79,30 +85,25 @@ app = FastAPI(
     description="ML-powered hallucination risk analysis with Claude prompt engineering.",
     version="1.0.0",
     lifespan=lifespan,
-    # Disable docs in production via env
     docs_url="/docs" if os.getenv("ENABLE_DOCS", "true").lower() == "true" else None,
     redoc_url=None,
 )
 
-from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
-# Attach limiter to app state + register 429 handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── Middleware ─────────────────────────────────────────────────
 
-# CORS — restricted to known origins only
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,            # No cookies needed
-    allow_methods=["GET", "POST"],      # Only what we use
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-API-Key"],
 )
 
-# Structured JSON logging on every request
 app.add_middleware(LoggingMiddleware)
 
 
@@ -112,12 +113,11 @@ app.add_middleware(LoggingMiddleware)
 async def add_security_headers(request: Request, call_next):
     """Add security headers to every response."""
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"]    = "nosniff"
-    response.headers["X-Frame-Options"]           = "DENY"
-    response.headers["X-XSS-Protection"]          = "1; mode=block"
-    response.headers["Referrer-Policy"]            = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"]         = "geolocation=(), microphone=(), camera=()"
-    # Only add HSTS in production (breaks local dev with HTTP)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     if os.getenv("PRODUCTION", "false").lower() == "true":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -158,7 +158,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     log_error("unhandled_exception", exc, {"path": request.url.path})
-    # Never expose internal error details to clients
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
@@ -192,7 +191,6 @@ def _merge_claude_into_result(result: dict, claude: dict) -> dict:
     if _is_valid_list(claude.get("what_to_add")):
         result["what_to_add"] = claude["what_to_add"]
 
-    # Claude-only fields
     abstention = claude.get("abstention_needed", {})
     if isinstance(abstention, dict) and abstention.get("reason"):
         result["abstention_reason"] = abstention["reason"]
@@ -232,7 +230,7 @@ async def predict_prompt(
     - Risk label + confidence score
     - Word-level highlights with reasons (hover tooltips)
     - Score breakdown: ambiguity, specificity, context gap
-    - Abstention level (self_contained → unanswerable)
+    - Abstention level (self_contained -> unanswerable)
     - Claude-enriched: why risky, missing context, what to add, LLM warning
     """
     t0 = time.perf_counter()
@@ -241,10 +239,8 @@ async def predict_prompt(
         raise HTTPException(status_code=503, detail="ML models not loaded. Try again in a moment.")
 
     try:
-        # 1. ML prediction (always runs, always primary)
         result = predict_prompt_risk(body.prompt, body.llm_target.value)
 
-        # 2. Claude enrichment (optional — degrades gracefully if unavailable)
         try:
             claude_analysis = analyze_prompt_context(body.prompt, result, body.llm_target.value)
             result = _merge_claude_into_result(result, claude_analysis)
@@ -252,7 +248,6 @@ async def predict_prompt(
             log_error("claude_enrichment", e)
             result["llm_specific_warning"] = ""
 
-        # 3. Build validated response
         response = PromptRiskResponse(
             label=result["label"],
             confidence=result["confidence"],
@@ -315,7 +310,10 @@ async def predict_response(
             hallucinated=result["hallucinated"],
             confidence=result["confidence"],
             risk_percent=result["risk_percent"],
-            hallucination_type=HallucinationType(**result["hallucination_type"]) if result["hallucination_type"] else None,
+            hallucination_type=(
+                HallucinationType(**result["hallucination_type"])
+                if result["hallucination_type"] else None
+            ),
             explanation=result["explanation"],
             highlights=[WordHighlight(**h) for h in result["highlights"]],
         )
@@ -362,7 +360,6 @@ async def engineer_prompt_endpoint(
             risk_context=body.risk_context,
         )
 
-        # Validate diff items have correct keys — map flexibly
         diff_items = []
         for d in result.get("diff", []):
             diff_items.append(PromptDiff(
@@ -406,4 +403,3 @@ if __name__ == "__main__":
         reload=os.getenv("RELOAD", "false").lower() == "true",
         workers=int(os.getenv("WORKERS", "1")),
     )
-    
