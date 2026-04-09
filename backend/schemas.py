@@ -172,7 +172,8 @@ class PromptRiskResponse(BaseModel):
     score_breakdown: ScoreBreakdown
     highlights: list[WordHighlight]
     abstention_level: AbstentionLevel
-    abstention_reason: str
+    from typing import Optional
+    abstention_reasons: Optional[list[str]] = None
     missing_context: list[str]
     why_risky: list[str]
     what_to_add: list[str]
