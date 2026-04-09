@@ -11,7 +11,7 @@ Security hardening:
 
 import re
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import Optional
+from typing import List, Optional
 from enum import Enum
 
 # ── Sanitization helpers ───────────────────────────────────────
@@ -172,8 +172,7 @@ class PromptRiskResponse(BaseModel):
     score_breakdown: ScoreBreakdown
     highlights: list[WordHighlight]
     abstention_level: AbstentionLevel
-    from typing import Optional
-    abstention_reasons: Optional[list[str]] = None
+    abstention_reasons: Optional[List[str]] = None
     missing_context: list[str]
     why_risky: list[str]
     what_to_add: list[str]

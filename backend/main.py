@@ -255,7 +255,7 @@ async def predict_prompt(
             score_breakdown=ScoreBreakdown(**result["score_breakdown"]),
             highlights=[WordHighlight(**h) for h in result["highlights"]],
             abstention_level=AbstentionLevel(result["abstention_level"]),
-            abstention_reasons=result.get("abstention_reasons", None),
+            abstention_reasons=result.get("abstention_reasons", []),
             missing_context=result["missing_context"],
             why_risky=result["why_risky"],
             what_to_add=result["what_to_add"],
