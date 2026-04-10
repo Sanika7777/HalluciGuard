@@ -23,7 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-# ── JSON Formatter ─────────────────────────────────────────────
+#JSON formatter with scrubbing
 
 
 class JSONFormatter(logging.Formatter):
@@ -44,7 +44,7 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Add any extra fields attached to the record
+        #extra fields
         skip = {
             "message",
             "msg",
@@ -85,13 +85,13 @@ class JSONFormatter(logging.Formatter):
         return raw
 
 
-# ── Logger Setup ───────────────────────────────────────────────
+#setup
 
 
 def _setup_logger() -> logging.Logger:
     logger = logging.getLogger("hallucination_detector")
     if logger.handlers:
-        return logger  # Already configured
+        return logger
 
     logger.setLevel(logging.DEBUG)
     fmt = JSONFormatter()
@@ -116,7 +116,7 @@ def _setup_logger() -> logging.Logger:
 log = _setup_logger()
 
 
-# ── Request Logging Middleware ─────────────────────────────────
+#logging middleware for requests and responses
 
 _SAFE_BODY_KEYS = {"prompt", "response", "llm_target", "risk_context"}
 _MAX_BODY_LEN = 500  # chars per field before truncation
@@ -200,7 +200,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# ── Helper Functions ───────────────────────────────────────────
+#helper
 
 
 def log_prediction_event(

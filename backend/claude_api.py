@@ -23,7 +23,7 @@ from anthropic import Anthropic, APITimeoutError, APIConnectionError, RateLimitE
 
 log = logging.getLogger("hallucination_detector")
 
-# ── Client setup ───────────────────────────────────────────────
+#setup
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
@@ -39,7 +39,7 @@ else:
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     log.info(f"Claude API ready. Model: {CLAUDE_MODEL}")
 
-# ── LLM quirks (tailors analysis and engineering per target LLM) ──
+#tailors analysis and engineering per target LLM
 
 LLM_QUIRKS = {
     "gpt4": "GPT-4 hallucinates on very recent events and math edge cases. Responds well to role-framing and step-by-step reasoning.",
@@ -48,7 +48,7 @@ LLM_QUIRKS = {
     "llama": "Llama models hallucinate more on niche topics and long reasoning chains. Benefits from short, precise prompts with clear constraints.",
 }
 
-# ── Retry helper ───────────────────────────────────────────────
+#retry helper for error handling
 
 
 def _call_claude(
@@ -116,7 +116,7 @@ def _parse_json(raw: str) -> dict:
     return json.loads(clean)
 
 
-# ── Always-on: Context Analysis ────────────────────────────────
+#context analysis
 
 
 def analyze_prompt_context(
@@ -148,7 +148,7 @@ def analyze_prompt_context(
         "Keep every bullet point under 10 words."
     )
 
-    # User input is clearly delimited with XML tags to prevent injection
+    #prevent prompt injection and XML injection by clearly delimiting user input and not allowing any system instructions to be injected via the prompt
     user = f"""Analyze this prompt for hallucination risk.
 
 <prompt>{prompt}</prompt>
@@ -181,7 +181,6 @@ Rules:
         raw = _call_claude(system, user, max_tokens=800)
         result = _parse_json(raw)
 
-        # Validate minimum expected keys
         required = {
             "missing_context",
             "why_risky",
@@ -214,7 +213,7 @@ Rules:
         return _fallback_context(ml_result)
 
 
-# ── On-demand: Prompt Engineering ─────────────────────────────
+#prompt engineer
 
 
 def engineer_prompt(
@@ -323,7 +322,7 @@ Rules:
         return _fallback_engineer(prompt, llm_target)
 
 
-# ── Fallbacks ──────────────────────────────────────────────────
+#fallback - ensures core functionality even if API fails
 
 
 def _fallback_context(ml_result: dict) -> dict:
