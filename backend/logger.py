@@ -236,4 +236,3 @@ def log_error(
             **(extra or {}),
         },
     )
-
