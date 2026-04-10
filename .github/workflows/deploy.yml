@@ -82,4 +82,4 @@ jobs:
             sleep 20
             curl --fail http://localhost:8000/health || (echo "Health check failed!" && exit 1)
 
-            echo "✅ Deployment successful."
+            echo "Deployment successful."
