@@ -10,8 +10,6 @@ from logger import log, log_error
 
 PKL_DIR = Path(__file__).parent / "pkl"
 
-# RISKY WORD REASONS (for hover tooltips)
-# These map TF-IDF feature patterns to human explanations and suggestions.
 RISKY_PATTERNS = [
     (
         r"\b(best|worst|greatest|most|least|top|number one)\b",
@@ -94,7 +92,7 @@ ABSTENTION_PATTERNS = [
 ]
 
 
-# MODEL STORE
+#model store to hold loaded ML models in memory for fast inference without reloading from disk on every request
 class ModelStore:
     prompt_model: dict = None
     response_model: dict = None
@@ -118,7 +116,7 @@ class ModelStore:
             raise RuntimeError(f"Failed to load models: {e}")
 
 
-# WORD HIGHLIGHTING
+#word highlighting --doesnt work properly yet
 def get_word_highlights(text: str, risky_features: dict, top_n: int = 10) -> list[dict]:
     """
     Tokenize text, score each token against TF-IDF risky features,
@@ -234,7 +232,7 @@ def get_response_highlights(
     return highlights[:8]
 
 
-# SCORE BREAKDOWN
+#score breakdown logic
 def compute_score_breakdown(prompt: str, base_confidence: float) -> dict:
     words = prompt.lower().split()
     word_count = len(words)
@@ -258,14 +256,14 @@ def compute_score_breakdown(prompt: str, base_confidence: float) -> dict:
         (vague_count / max(word_count, 1)) * 3 + (1 - min(word_count / 20, 1)) * 0.4,
     )
 
-    # Specificity: named entities, numbers, dates increase specificity (lower risk)
+    # Specificity
     has_numbers = bool(re.search(r"\d+", prompt))
     has_quotes = bool(re.search(r'["\']', prompt))
     has_proper_nouns = bool(re.search(r"\b[A-Z][a-z]+\b", prompt))
     specificity_score = has_numbers * 0.3 + has_quotes * 0.3 + has_proper_nouns * 0.2
     specificity_risk = max(0.0, 1.0 - specificity_score - (word_count / 50) * 0.2)
 
-    # Context: does the prompt provide enough background?
+    #words that are used for better context
     context_words = {
         "because",
         "since",
@@ -297,7 +295,7 @@ def compute_score_breakdown(prompt: str, base_confidence: float) -> dict:
     }
 
 
-# ABSTENTION DETECTION
+#abstention logic
 def detect_abstention(prompt: str) -> tuple[str, str, list[str]]:
 
     level = "self_contained"
@@ -334,7 +332,7 @@ def detect_abstention(prompt: str) -> tuple[str, str, list[str]]:
     return level, reason, missing
 
 
-# INFERENCE ENGINE
+#main inference engine - main prediction
 
 
 def predict_prompt_risk(prompt: str, llm_target: str = "gpt4") -> dict:

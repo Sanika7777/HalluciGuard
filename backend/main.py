@@ -1,17 +1,4 @@
-"""
-main.py — FastAPI Application (Production Ready)
-
-Experiments covered: 2 (endpoints) + 3 (logging/errors) + 4 (auth) + rate limiting
-
-Security hardening:
-- CORS restricted to allowed origins only (configurable via env)
-- Security headers on every response (XSS, clickjacking, sniffing protection)
-- Request size limit (prevent giant payload attacks)
-- Internal error details never exposed to clients
-- Dependency injection for auth (cannot be bypassed)
-- Smart ML + Claude merge (ML always primary, Claude enriches only)
-- Per-IP rate limiting on all prediction endpoints (slowapi)
-"""
+#Experiments covered: 2 (endpoints) + 3 (logging/errors) + 4 (auth) + rate limiting
 
 import os
 import time
@@ -46,7 +33,7 @@ from schemas import (
     WordHighlight,
 )
 
-# ── Environment config ─────────────────────────────────────────
+#Environment config
 
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
@@ -56,12 +43,12 @@ ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 MAX_REQUEST_SIZE = int(os.getenv("MAX_REQUEST_SIZE", str(10 * 1024 * 1024)))
 
-# ── Rate limiter ───────────────────────────────────────────────
+#Rate limiter
 
 limiter = Limiter(key_func=get_remote_address)
 
 
-# ── Lifespan ───────────────────────────────────────────────────
+#Lifespan
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,7 +65,7 @@ async def lifespan(app: FastAPI):
     log.info("API shutting down.")
 
 
-# ── App init ───────────────────────────────────────────────────
+#App init
 
 app = FastAPI(
     title="HalluciGuard API",
@@ -94,7 +81,7 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ── Middleware ─────────────────────────────────────────────────
+#CORS middleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +94,7 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 
-# ── Security headers middleware ────────────────────────────────
+#security headers middleware
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -123,7 +110,7 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-# ── Request size limit middleware ──────────────────────────────
+#request size limiter middleware
 
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
@@ -137,7 +124,7 @@ async def limit_request_size(request: Request, call_next):
     return await call_next(request)
 
 
-# ── Exception handlers ─────────────────────────────────────────
+#exception handling
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -167,7 +154,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── Smart ML + Claude merge ────────────────────────────────────
+#main logic**
 
 def _merge_claude_into_result(result: dict, claude: dict) -> dict:
     """
@@ -200,7 +187,7 @@ def _merge_claude_into_result(result: dict, claude: dict) -> dict:
     return result
 
 
-# ── Routes ─────────────────────────────────────────────────────
+#routing
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
@@ -392,7 +379,7 @@ async def engineer_prompt_endpoint(
         raise HTTPException(status_code=500, detail="Prompt engineering failed. Please try again.")
 
 
-# ── Entry point ────────────────────────────────────────────────
+#entry point for docker
 
 if __name__ == "__main__":
     import uvicorn

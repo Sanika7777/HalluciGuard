@@ -21,7 +21,7 @@ log = logging.getLogger("hallucination_detector")
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# ── Load API key from environment ─────────────────────────────
+#setup
 _raw_key = os.getenv("API_KEY", "")
 _dev_key = "dev-hallucination-key-2026"
 
@@ -42,7 +42,7 @@ else:
     IS_DEV = False
     log.info("✓ Production API key loaded.")
 
-# ── Brute force protection ─────────────────────────────────────
+#brute force protection with in-memory tracking of failed attempts per IP
 # Track failed attempts per IP in memory
 # In production with multiple workers, use Redis instead
 _failed_attempts: dict[str, list[float]] = defaultdict(list)
@@ -79,7 +79,7 @@ def _clear_failed_attempts(ip: str) -> None:
         del _failed_attempts[ip]
 
 
-# ── Main auth dependency ───────────────────────────────────────
+#main dependency to verify API key on protected routes
 
 
 async def verify_api_key(
