@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Optional
 from enum import Enum
 
-# ── Sanitization helpers ───────────────────────────────────────
+#input sanitization helpers
 
 _NULL_BYTES = re.compile(r"\x00")
 _CTRL_CHARS = re.compile(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -27,7 +27,7 @@ def _sanitize_text(v: str) -> str:
     return v.strip()
 
 
-# ── Enums ──────────────────────────────────────────────────────
+#enums
 
 
 class LLMTarget(str, Enum):
@@ -44,7 +44,7 @@ class AbstentionLevel(str, Enum):
     unanswerable = "unanswerable"
 
 
-# ── Request Schemas ────────────────────────────────────────────
+#request schemas
 
 
 class PromptRiskRequest(BaseModel):
@@ -135,7 +135,7 @@ class EngineerPromptRequest(BaseModel):
         return v
 
 
-# ── Response Schemas ───────────────────────────────────────────
+# response schemas
 
 
 class WordHighlight(BaseModel):
@@ -197,7 +197,7 @@ class EngineerPromptResponse(BaseModel):
     llm_target: str
 
 
-# ── Generic Schemas ────────────────────────────────────────────
+# generic schemas
 
 
 class ErrorResponse(BaseModel):

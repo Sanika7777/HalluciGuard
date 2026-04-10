@@ -200,7 +200,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-#helper
+# helper
 
 
 def log_prediction_event(
@@ -236,3 +236,4 @@ def log_error(
             **(extra or {}),
         },
     )
+
