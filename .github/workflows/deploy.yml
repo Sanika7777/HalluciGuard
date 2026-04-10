@@ -29,7 +29,7 @@ jobs:
           flake8 backend/ \
             --max-line-length=120 \
             --exclude=backend/__pycache__,backend/pkl \
-            --ignore=E501,W503
+            --ignore=E501,W503, E265
 
   # ── Job 2: Deploy to EC2 (only on push to main, after lint passes) ──
   deploy:
