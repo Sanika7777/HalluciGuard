@@ -1,5 +1,6 @@
 # ML Inference Engine and Explanation Logic
 
+import os
 import pickle
 import time
 import re
@@ -9,6 +10,9 @@ from pathlib import Path
 from logger import log, log_error
 
 PKL_DIR = Path(__file__).parent / "pkl"
+
+PROMPT_RISK_THRESHOLD = float(os.getenv("PROMPT_RISK_THRESHOLD", "0.65"))
+HALLUCINATION_THRESHOLD = float(os.getenv("HALLUCINATION_THRESHOLD", "0.65"))
 
 RISKY_PATTERNS = [
     (
@@ -140,7 +144,7 @@ def get_word_highlights(text: str, risky_features: dict, top_n: int = 10) -> lis
                 bigram_score = max(bigram_score, feat_score * 0.7)
 
         total_score = max(score, bigram_score)
-        if total_score > 0.1:
+        if total_score > 0.2:
             word_scores.append((orig_match, word, total_score))
 
     # Sort by score, take top_n
@@ -202,7 +206,7 @@ def get_response_highlights(
         word = lower_match.group()
         score = risky_features.get(word, 0.0)
 
-        if score > 0.05 and word not in seen:
+        if score > 0.15 and word not in seen:
             seen.add(word)
             reason = "Term statistically linked to hallucinated responses"
             suggestions = [
@@ -347,7 +351,7 @@ def predict_prompt_risk(prompt: str, llm_target: str = "gpt4") -> dict:
     proba = pipeline.predict_proba([prompt])[0]
     risky_idx = list(pipeline.classes_).index(1) if 1 in pipeline.classes_ else 1
     confidence = float(proba[risky_idx])
-    label = "risky" if confidence >= 0.5 else "safe"
+    label = "risky" if confidence >= PROMPT_RISK_THRESHOLD else "safe"
 
     # Word highlights
     highlights = get_word_highlights(prompt, risky_features)
@@ -420,7 +424,8 @@ def predict_response_hallucination(prompt: str, response: str) -> dict:
 
     # Binary prediction
     bin_proba = binary_clf.predict_proba(X)[0]
-    hallucinated = bool(binary_clf.predict(X)[0])
+    halluc_idx = list(binary_clf.classes_).index(1) if 1 in binary_clf.classes_ else 1
+    hallucinated = bool(bin_proba[halluc_idx] >= HALLUCINATION_THRESHOLD)
     confidence = float(max(bin_proba))
 
     # Type classification (model-predicted, not hardcoded)

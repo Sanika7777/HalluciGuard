@@ -70,6 +70,8 @@ jobs:
             CLAUDE_MODEL=claude-sonnet-4-5
             PRODUCTION=true
             ALLOWED_ORIGINS=http://${{ secrets.EC2_HOST }},http://${{ secrets.EC2_HOST }}:3000
+            PROMPT_RISK_THRESHOLD=${{ secrets.PROMPT_RISK_THRESHOLD }}
+            HALLUCINATION_THRESHOLD=${{ secrets.HALLUCINATION_THRESHOLD }}
             EOF
 
             # ── Rebuild and restart containers ────────────────────
