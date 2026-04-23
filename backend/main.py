@@ -1,4 +1,4 @@
-#Experiments covered: 2 (endpoints) + 3 (logging/errors) + 4 (auth) + rate limiting
+#Expt covered: 2 (endpoints) + 3 (logging/errors) + 4 (auth) + rate limiting
 
 import os
 import time
